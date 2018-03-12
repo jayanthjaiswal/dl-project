@@ -1,0 +1,2 @@
+RNN for time series (maybe use)
+    https://pdfs.semanticscholar.org/530d/2b07898a610a3c7de19c01b71dc4b5a6dd5d.pdf
