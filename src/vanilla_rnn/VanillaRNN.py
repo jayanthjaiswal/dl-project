@@ -66,7 +66,10 @@ class VanillaRNN(nn.Module):
             self.layer1 = nn.Sequential(
                 nn.Conv1d(22, 32, kernel_size=5, padding=2, stride=1), #32x1000
                 nn.MaxPool1d(2), #32 x 500
-                nn.Conv1d(32, 8, kernel_size=4, padding=1, stride=2)) #8x250
+                nn.Conv1d(32, 32, kernel_size=4, padding=1, stride=2), #8x250
+                nn.MaxPool1d(2)) #32 x 125
+                #nn.Conv1d(32, 16, kernel_size=4, padding=2, stride=2), #8x250
+                #nn.MaxPool1d(2)) #32 x 61
                 #nn.BatchNorm1d(32), 
                 #nn.ReLU(),
             #self.layer2 = nn.Sequential(
@@ -74,7 +77,9 @@ class VanillaRNN(nn.Module):
             #    nn.BatchNorm1d(8),
             #    nn.ReLU())
 
-            prev_size = 8
+            prev_size = 32
+
+        self.T = 125
 
         # input processing layers -- optional --
 
@@ -97,6 +102,7 @@ class VanillaRNN(nn.Module):
                             input_size = prev_size, 
                             hidden_size = recurrent_hidden_size,
                             num_layers = recurrent_layer_num,
+                            nonlinearity = 'tanh',
                             bias = recurrent_use_bias,
                             batch_first = False,
                             dropout = recurrent_dropout)
@@ -116,12 +122,46 @@ class VanillaRNN(nn.Module):
         self.output_layer = nn.Sequential(output_layers)
 
     def initialize_weights(self):
-        for (k, layer) in self.rnn_layer.named_parameters():
+        for (k, weight) in self.rnn_layer.named_parameters():
             if 'weight_hh' in k:
-                t = layer.data
+                t = weight.data
                 layer = Variable(nn.init.eye(t), requires_grad=True)
 
+    def loss_regularizer(self):
+        #grads = []
+        #for (k, weight) in self.rnn_layer.named_parameters():
+        #    if 'weight_hh' in k:
+        #        if (weight.grad is not None):
+        #            grads.append(weight.grad)
 
+        #grads.reverse()
+
+        loss = 0
+
+        dLdh = self.rnn_out.grad.sum(dim=0).chunk(3)[-1]
+
+        print(dLdh.shape)
+
+        l2norm = nn.MSELoss()
+
+        w = dict(self.rnn_layer.named_parameters())['weight_hh_l{}'.format(
+                                                self.recurrent_layer_num - 1)]
+        w = w.permute(1,0)
+
+        print(w.shape)
+
+        target = dtype(np.zeros_like(dLdh))
+        prev_norm = l2norm(dLdh, target)**0.5
+        for i in range(self.T):
+            #print('dLdh[{}]: {}'.format(i, dLdh.sum()))
+            dLdh = w.mv(dLdh)
+            temp_norm = l2norm(dLdh, target)**0.5
+            #print('prev norm[{}]: {}'.format(i, prev_norm))
+            #print('temp norm[{}]: {}'.format(i, temp_norm))
+            loss += (temp_norm/prev_norm -1)**2
+            #dLdh_l.append(params[i])
+
+        return loss
 
     def forward(self, X):
         '''
@@ -161,6 +201,7 @@ class VanillaRNN(nn.Module):
 
         #out, h = self.rnn_layer(out, initial_state) # now has shape T, N, H_rnn
         out, h = self.rnn_layer(out) # now has shape T, N, H_rnn
+
         if (self.recurrent_layer_num > 1):
             print('multilayer_h_shape {}'.format(h.shape))
             h = h.permute(1, 0, 2).contiguous()
@@ -174,8 +215,11 @@ class VanillaRNN(nn.Module):
             print('hidden state shape before extract {}'.format(h.shape))
             print('diff between last out and h: {}'.format(torch.mean(out.data[-1,:,:] - h.data)))
             print('sanity check h: {}'.format(torch.mean(h.data)))
-        #out = out[-1,:,:].squeeze()
+
         out = h.squeeze()
+
+        out.retain_grad()
+        self.rnn_out = out
 
         if (self.verbose):
             print('before final outshape {}'.format(out.shape))
@@ -184,14 +228,3 @@ class VanillaRNN(nn.Module):
             print('final outshape {}'.format(out.shape))
 
         return out, h
-
-        #if (self.training):
-        #    reshaped_out = out.view(-1, self.num_classes)
-        #    print('not reshaped outshape {}'.format(out.shape))
-        #    print('reshaped outshape {}'.format(reshaped_out.shape))
-        #    return reshaped_out, h
-        #else:
-        #    renamed = out
-        #    accumulated_out = torch.mean(renamed, dim=0)
-        #    print('accumulated outshape {}'.format(accumulated_out.shape))
-        #    return accumulated_out, h #out[-1,:,:], h
