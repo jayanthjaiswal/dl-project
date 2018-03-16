@@ -46,6 +46,7 @@ class VanillaRNN(nn.Module):
                 # generally recommended 2/3, but in class we used 1
             recurrent_use_bias = False,
             recurrent_dropout = False,
+            use_initial_state = False,
             final_hidden_layer_sizes = [], # not including num_classes output layer
             num_classes = _default_num_classes,
             verbose = False):
@@ -56,6 +57,7 @@ class VanillaRNN(nn.Module):
         self.conv_layers = conv_layers
         self.recurrent_hidden_size = recurrent_hidden_size
         self.recurrent_layer_num = recurrent_layer_num
+        self.use_initial_state = use_initial_state
         self.verbose = verbose
 
         prev_size = num_electrodes
@@ -64,22 +66,20 @@ class VanillaRNN(nn.Module):
         
         if (self.conv_layers):
             self.layer1 = nn.Sequential(
-                nn.Conv1d(22, 32, kernel_size=5, padding=2, stride=1), #32x1000
+                nn.BatchNorm1d(22),
+                nn.Conv1d(22, 16, kernel_size=5, padding=2, stride=1), #32x1000
                 nn.MaxPool1d(2), #32 x 500
-                nn.Conv1d(32, 32, kernel_size=4, padding=1, stride=2), #8x250
-                nn.MaxPool1d(2)) #32 x 125
-                #nn.Conv1d(32, 16, kernel_size=4, padding=2, stride=2), #8x250
-                #nn.MaxPool1d(2)) #32 x 61
-                #nn.BatchNorm1d(32), 
+                nn.Conv1d(16, 32, kernel_size=4, padding=1, stride=2), #8x250
+                nn.MaxPool1d(2), #32 x 125
+                nn.Conv1d(32, 16, kernel_size=4, padding=2, stride=2),
+                #nn.MaxPool1d(2), #32 x 61
+                nn.Conv1d(16, 16, kernel_size=2, padding=1, stride=2),
+                #nn.MaxPool1d(2), #16 x 30
+                nn.BatchNorm1d(16))
                 #nn.ReLU(),
-            #self.layer2 = nn.Sequential(
-            #    nn.Conv1d(32, 8, kernel_size=4, padding=1, stride=2), #8x250
-            #    nn.BatchNorm1d(8),
-            #    nn.ReLU())
 
-            prev_size = 32
-
-        self.T = 125
+            prev_size = 16
+            self.T = 32
 
         # input processing layers -- optional --
 
@@ -92,7 +92,6 @@ class VanillaRNN(nn.Module):
             initial_layers['initial_relu_{}'.format(idx)] = nn.ReLU()
             prev_size = s
 
-        #print(prev_size)
         #initial_layers['batchnorm_before_rnn'] = nn.BatchNorm1d(prev_size)
 
         self.initial_layer = nn.Sequential(initial_layers)
@@ -117,6 +116,7 @@ class VanillaRNN(nn.Module):
             prev_size = s
 
         # output classifier layers
+        output_layers['preoutput_ batchnorm'] = nn.BatchNorm1d(prev_size)
         output_layers['output'] = nn.Linear(prev_size, num_classes)
 
         self.output_layer = nn.Sequential(output_layers)
@@ -128,19 +128,9 @@ class VanillaRNN(nn.Module):
                 layer = Variable(nn.init.eye(t), requires_grad=True)
 
     def loss_regularizer(self):
-        #grads = []
-        #for (k, weight) in self.rnn_layer.named_parameters():
-        #    if 'weight_hh' in k:
-        #        if (weight.grad is not None):
-        #            grads.append(weight.grad)
-
-        #grads.reverse()
-
         loss = 0
 
-        dLdh = self.rnn_out.grad.sum(dim=0).chunk(3)[-1]
-
-        print(dLdh.shape)
+        dLdh = self.rnn_out.grad.sum(dim=0).chunk(self.recurrent_layer_num)[-1]
 
         l2norm = nn.MSELoss()
 
@@ -148,18 +138,12 @@ class VanillaRNN(nn.Module):
                                                 self.recurrent_layer_num - 1)]
         w = w.permute(1,0)
 
-        print(w.shape)
-
         target = dtype(np.zeros_like(dLdh))
         prev_norm = l2norm(dLdh, target)**0.5
         for i in range(self.T):
-            #print('dLdh[{}]: {}'.format(i, dLdh.sum()))
             dLdh = w.mv(dLdh)
             temp_norm = l2norm(dLdh, target)**0.5
-            #print('prev norm[{}]: {}'.format(i, prev_norm))
-            #print('temp norm[{}]: {}'.format(i, temp_norm))
             loss += (temp_norm/prev_norm -1)**2
-            #dLdh_l.append(params[i])
 
         return loss
 
@@ -177,7 +161,6 @@ class VanillaRNN(nn.Module):
 
         if (self.conv_layers):
             out = self.layer1(out)
-            #out = self.layer2(out)
 
         if (not self.training):
             plt.plot(out.data[0, 0, :])
@@ -195,26 +178,24 @@ class VanillaRNN(nn.Module):
         out = self.initial_layer(out) # has shape T, N, H_in
         # H_in is the last hidden network layer size
 
-        #initial_state = dtype(np.ones((1, out.shape[1],
-        #                                self.recurrent_hidden_size))
-        #                                /float(self.recurrent_hidden_size))
+        if (self.use_initial_state):
+            initial_state = dtype(np.ones((self.recurrent_layer_num,
+                                            out.shape[1],
+                                            self.recurrent_hidden_size))
+                                            /float(self.recurrent_hidden_size))
 
-        #out, h = self.rnn_layer(out, initial_state) # now has shape T, N, H_rnn
-        out, h = self.rnn_layer(out) # now has shape T, N, H_rnn
+            out, h = self.rnn_layer(out, initial_state) # now has shape T, N, H_rnn
+        else:
+            out, h = self.rnn_layer(out) # now has shape T, N, H_rnn
 
         if (self.recurrent_layer_num > 1):
-            print('multilayer_h_shape {}'.format(h.shape))
             h = h.permute(1, 0, 2).contiguous()
-            print('permuted_h_shape {}'.format(h.shape))
             h = h.view(h.shape[0], -1)
-            print('flattened_h_shape {}'.format(h.shape))
         # H_rnn is the size of the hidden output
 
         if (self.verbose):
             print('outshape before extract {}'.format(out.shape))
             print('hidden state shape before extract {}'.format(h.shape))
-            print('diff between last out and h: {}'.format(torch.mean(out.data[-1,:,:] - h.data)))
-            print('sanity check h: {}'.format(torch.mean(h.data)))
 
         out = h.squeeze()
 
@@ -223,7 +204,9 @@ class VanillaRNN(nn.Module):
 
         if (self.verbose):
             print('before final outshape {}'.format(out.shape))
+
         out = self.output_layer(out) # now has shape T, N, num_classes
+
         if (self.verbose):
             print('final outshape {}'.format(out.shape))
 
