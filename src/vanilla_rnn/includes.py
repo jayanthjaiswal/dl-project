@@ -13,9 +13,5 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.optim as optim
 
-dtype = torch.FloatTensor # torch.cuda.FloatTensor 
-
-class Flatten(nn.Module):
-    def forward(self, x):
-        N, num_electrodes, num_times
-        return
+dtype = torch.FloatTensor
+#dtype = torch.cuda.FloatTensor 
