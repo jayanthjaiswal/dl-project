@@ -67,21 +67,14 @@ class VanillaRNN(nn.Module):
         if (self.conv_layers):
             self.layer1 = nn.Sequential(
                 nn.BatchNorm1d(22),
-                nn.Conv1d(22, 16, kernel_size=25, padding=5, stride=5), #32x1000
-                nn.Conv1d(16, 8, kernel_size=25, padding=1, stride=5), #32x1000
+                nn.Conv1d(22, 16*22, kernel_size=25, padding=5, stride=5,
+                            groups = 22), #32x1000
+                nn.Conv1d(22, 16*22, kernel_size=25, padding=1, stride=5,
+                            groups = 22))#, #32x1000
                 #nn.Conv1d(64, 16, kernel_size=1, padding=1, stride=1), #32x1000
-                nn.BatchNorm1d(8))
-                #nn.Conv1d(22, 16, kernel_size=5, padding=2, stride=1), #32x1000
-                #nn.MaxPool1d(2), #32 x 500
-                ##nn.ReLU(),
-                #nn.Conv1d(16, 32, kernel_size=4, padding=1, stride=2), #8x250
-                #nn.MaxPool1d(2), #32 x 125
-                #nn.Conv1d(32, 16, kernel_size=4, padding=2, stride=2),
-                ##nn.ReLU(),
-                ##nn.MaxPool1d(2), #32 x 61
-                #nn.Conv1d(16, 16, kernel_size=2, padding=1, stride=2),
-                ##nn.MaxPool1d(2), #16 x 30
-                #nn.BatchNorm1d(16))
+                #nn.BatchNorm1d(8))
+
+            self.layer2 = nn.Conv1d(36, 36, kernel_size=
 
             #prev_size = 16
             #self.T = 32
