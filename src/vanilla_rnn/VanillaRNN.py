@@ -67,19 +67,26 @@ class VanillaRNN(nn.Module):
         if (self.conv_layers):
             self.layer1 = nn.Sequential(
                 nn.BatchNorm1d(22),
-                nn.Conv1d(22, 16, kernel_size=5, padding=2, stride=1), #32x1000
-                nn.MaxPool1d(2), #32 x 500
-                nn.Conv1d(16, 32, kernel_size=4, padding=1, stride=2), #8x250
-                nn.MaxPool1d(2), #32 x 125
-                nn.Conv1d(32, 16, kernel_size=4, padding=2, stride=2),
-                #nn.MaxPool1d(2), #32 x 61
-                nn.Conv1d(16, 16, kernel_size=2, padding=1, stride=2),
-                #nn.MaxPool1d(2), #16 x 30
-                nn.BatchNorm1d(16))
-                #nn.ReLU(),
+                nn.Conv1d(22, 16, kernel_size=25, padding=5, stride=5), #32x1000
+                nn.Conv1d(16, 8, kernel_size=25, padding=1, stride=5), #32x1000
+                #nn.Conv1d(64, 16, kernel_size=1, padding=1, stride=1), #32x1000
+                nn.BatchNorm1d(8))
+                #nn.Conv1d(22, 16, kernel_size=5, padding=2, stride=1), #32x1000
+                #nn.MaxPool1d(2), #32 x 500
+                ##nn.ReLU(),
+                #nn.Conv1d(16, 32, kernel_size=4, padding=1, stride=2), #8x250
+                #nn.MaxPool1d(2), #32 x 125
+                #nn.Conv1d(32, 16, kernel_size=4, padding=2, stride=2),
+                ##nn.ReLU(),
+                ##nn.MaxPool1d(2), #32 x 61
+                #nn.Conv1d(16, 16, kernel_size=2, padding=1, stride=2),
+                ##nn.MaxPool1d(2), #16 x 30
+                #nn.BatchNorm1d(16))
 
-            prev_size = 16
-            self.T = 32
+            #prev_size = 16
+            #self.T = 32
+            prev_size = 8
+            self.T = 36
 
         # input processing layers -- optional --
 
@@ -128,11 +135,11 @@ class VanillaRNN(nn.Module):
                 layer = Variable(nn.init.eye(t), requires_grad=True)
 
     def loss_regularizer(self):
-        loss = 0
+        loss1 = 0
 
         dLdh = self.rnn_out.grad.sum(dim=0).chunk(self.recurrent_layer_num)[-1]
 
-        l2norm = nn.MSELoss()
+        l2norm = nn.MSELoss(size_average=False)
 
         w = dict(self.rnn_layer.named_parameters())['weight_hh_l{}'.format(
                                                 self.recurrent_layer_num - 1)]
@@ -143,9 +150,17 @@ class VanillaRNN(nn.Module):
         for i in range(self.T):
             dLdh = w.mv(dLdh)
             temp_norm = l2norm(dLdh, target)**0.5
-            loss += (temp_norm/prev_norm -1)**2
+            loss1 += (temp_norm/prev_norm -1)**2
 
-        return loss
+        #####  general weight magnitude
+
+        loss2 = 0
+        for (k, weight) in self.named_parameters():
+            if 'weight' in k:
+                target = dtype(np.zeros(weight.shape))
+                loss2 += l2norm(weight, target)**0.5
+
+        return loss1, loss2
 
     def forward(self, X):
         '''
