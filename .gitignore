@@ -2,6 +2,7 @@
 #  (to save space and also prevent us from accidentally
 #   making the dataset public)
 project_datasets
+junk
 
 # Fans' vim ignores
 *.swp
