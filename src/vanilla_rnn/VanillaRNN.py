@@ -67,42 +67,16 @@ class VanillaRNN(nn.Module):
         self.norm_layer = nn.BatchNorm1d(22)
         if (self.conv_layers):
             self.layer1 = nn.Sequential(
-                # here:, in_channels = 1, out_channels = 16
-                # height: is the 22 electrodes
-                # width: is the time
-                nn.Conv2d(1, 8,
-                            kernel_size=(1, 10),
-                            padding=(0, 5),
-                            stride=(1, 1)),
-                nn.Conv2d(8, 8,
-                            kernel_size=(1, 10),
-                            padding=(0, 1),
-                            stride=(1,1)),#, #32x1000
-                #nn.Conv1d(22, 16*22, kernel_size=25, padding=5, stride=5,
-                #            groups = 22), #32x1000
-                #nn.Conv1d(22, 16*22, kernel_size=25, padding=1, stride=5,
-                #            groups = 22))#, #32x1000
-                #nn.Conv1d(64, 16, kernel_size=1, padding=1, stride=1), #32x1000
-                #nn.BatchNorm1d(8))
-
-            # output has 16 channels, height is the electrodes,
-            #   width is reduced(smoothed) time (36)
-
-            # here, channels_in = 16, height=22, width is time
-                nn.Conv2d(8, 8,
-                             kernel_size= (22, 1),
-                             padding=(0, 0),
-                             stride=(1,1)),
+                nn.Conv1d(22, 44,
+                            kernel_size=25,
+                            groups = 22),
+                nn.ELU(),
+                nn.AvgPool1d(kernel_size=75,
+                             stride=15),
+                nn.Conv1d(44, 30, kernel_size=3),
                 nn.ELU())
-            #self.layer2 = nn.Conv2d(36, 36, kernel_size= 16*22,
-            #                        padding=0, stride=1, groups = 36)
-
-            # in forward, do a permute here
-
-            #prev_size = 16
-            #self.T = 32
-            prev_size = 8
-            self.T = 40
+            prev_size = 30
+            self.T = 64
 
         # input processing layers -- optional --
 
@@ -148,7 +122,10 @@ class VanillaRNN(nn.Module):
         for (k, weight) in self.rnn_layer.named_parameters():
             if 'weight_hh' in k:
                 t = weight.data
-                layer = Variable(nn.init.eye(t), requires_grad=True)
+                nn.init.eye(t)
+            elif 'weight' in k:
+                t = weight.data
+                nn.init.xavier_uniform(t)
 
     def loss_regularizer(self):
         loss1 = 0
@@ -194,11 +171,11 @@ class VanillaRNN(nn.Module):
             #out = self.layer1(out)
 
             # before: N, E, T = X.shape
-            out = out.unsqueeze(1)
+            #out = out.unsqueeze(1)
             # after: N, C=1, E, T = X.shape (C = 1 = num channels)
             out = self.layer1(out)
             # now, height should be collapsed, so sqeeze that back
-            out = out.squeeze()
+            #out = out.squeeze()
 
         if (not self.training):
             plt.plot(out.data[0, 0, :])
