@@ -70,7 +70,8 @@ class VanillaRNN(nn.Module):
                 nn.Conv1d(22, 16, kernel_size=25, padding=5, stride=5), #32x1000
                 nn.Conv1d(16, 8, kernel_size=25, padding=1, stride=5), #32x1000
                 #nn.Conv1d(64, 16, kernel_size=1, padding=1, stride=1), #32x1000
-                nn.BatchNorm1d(8))
+                nn.BatchNorm1d(8),
+                nn.ELU())
                 #nn.Conv1d(22, 16, kernel_size=5, padding=2, stride=1), #32x1000
                 #nn.MaxPool1d(2), #32 x 500
                 ##nn.ReLU(),
@@ -85,7 +86,7 @@ class VanillaRNN(nn.Module):
 
             #prev_size = 16
             #self.T = 32
-            prev_size = 8
+            prev_size = 8*36
             self.T = 36
 
         # input processing layers -- optional --
@@ -103,17 +104,17 @@ class VanillaRNN(nn.Module):
 
         self.initial_layer = nn.Sequential(initial_layers)
 
-        # the recurrent layers
-        self.rnn_layer = nn.LSTM(#nn.RNN(
-                            input_size = prev_size, 
-                            hidden_size = recurrent_hidden_size,
-                            num_layers = recurrent_layer_num,
-                            #nonlinearity = 'tanh',
-                            bias = recurrent_use_bias,
-                            batch_first = False,
-                            dropout = recurrent_dropout)
+        ## the recurrent layers
+        #self.rnn_layer = nn.LSTM(#nn.RNN(
+        #                    input_size = prev_size, 
+        #                    hidden_size = recurrent_hidden_size,
+        #                    num_layers = recurrent_layer_num,
+        #                    #nonlinearity = 'tanh',
+        #                    bias = recurrent_use_bias,
+        #                    batch_first = False,
+        #                    dropout = recurrent_dropout)
 
-        prev_size = recurrent_hidden_size * recurrent_layer_num
+        #prev_size = recurrent_hidden_size * recurrent_layer_num
 
         # output processing layers -- optional --
         output_layers = OrderedDict() 
@@ -129,10 +130,11 @@ class VanillaRNN(nn.Module):
         self.output_layer = nn.Sequential(output_layers)
 
     def initialize_weights(self):
-        for (k, weight) in self.rnn_layer.named_parameters():
-            if 'weight_hh' in k:
-                t = weight.data
-                layer = Variable(nn.init.eye(t), requires_grad=True)
+        #for (k, weight) in self.rnn_layer.named_parameters():
+        #    if 'weight_hh' in k:
+        #        t = weight.data
+        #        layer = Variable(nn.init.eye(t), requires_grad=True)
+        pass
 
     def loss_regularizer(self):
         loss1 = 0
@@ -181,49 +183,53 @@ class VanillaRNN(nn.Module):
             plt.plot(out.data[0, 0, :])
             plt.show()
 
-        # for rnn, we need to permute the input
-        #   before it was N, E, T
-        #   it needs to be T, N, E for rnn
-        if (self.verbose):
-            print('outshape1 {}'.format(out.shape))
-        out = out.permute(2,0,1) # has shape T, N, E
-        if (self.verbose):
-            print('outshape2 {}'.format(out.shape))
+        ## Commenting out for FCC check)
+        ## for rnn, we need to permute the input
+        ##   before it was N, E, T
+        ##   it needs to be T, N, E for rnn
+        #if (self.verbose):
+        #    print('outshape1 {}'.format(out.shape))
+        #out = out.permute(2,0,1) # has shape T, N, E
+        #if (self.verbose):
+        #    print('outshape2 {}'.format(out.shape))
 
-        out = self.initial_layer(out) # has shape T, N, H_in
-        # H_in is the last hidden network layer size
+        #out = self.initial_layer(out) # has shape T, N, H_in
+        ## H_in is the last hidden network layer size
 
-        if (self.use_initial_state):
-            initial_state = dtype(np.ones((self.recurrent_layer_num,
-                                            out.shape[1],
-                                            self.recurrent_hidden_size))
-                                            /float(self.recurrent_hidden_size))
+        #if (self.use_initial_state):
+        #    initial_state = dtype(np.ones((self.recurrent_layer_num,
+        #                                    out.shape[1],
+        #                                    self.recurrent_hidden_size))
+        #                                    /float(self.recurrent_hidden_size))
 
-            out, h = self.rnn_layer(out, initial_state) # now has shape T, N, H_rnn
-        else:
-            out, h = self.rnn_layer(out) # now has shape T, N, H_rnn
+        #    out, h = self.rnn_layer(out, initial_state) # now has shape T, N, H_rnn
+        #else:
+        #    out, h = self.rnn_layer(out) # now has shape T, N, H_rnn
 
-        if (self.recurrent_layer_num > 1):
-            h, c = h
-            h = h.permute(1, 0, 2).contiguous()
-            h = h.view(h.shape[0], -1)
-        # H_rnn is the size of the hidden output
+        #if (self.recurrent_layer_num > 1):
+        #    h, c = h
+        #    h = h.permute(1, 0, 2).contiguous()
+        #    h = h.view(h.shape[0], -1)
+        ## H_rnn is the size of the hidden output
 
-        if (self.verbose):
-            print('outshape before extract {}'.format(out.shape))
-            print('hidden state shape before extract {}'.format(h.shape))
+        #if (self.verbose):
+        #    print('outshape before extract {}'.format(out.shape))
+        #    print('hidden state shape before extract {}'.format(h.shape))
 
-        out = h.squeeze()
+        #out = h.squeeze()
 
-        out.retain_grad()
-        self.rnn_out = out
+        #out.retain_grad()
+        #self.rnn_out = out
 
         if (self.verbose):
             print('before final outshape {}'.format(out.shape))
 
+
+        ## for fcc:
+        out = out.view(out.shape[0], -1)
         out = self.output_layer(out) # now has shape T, N, num_classes
 
         if (self.verbose):
             print('final outshape {}'.format(out.shape))
 
-        return out, h
+        return out#, h
