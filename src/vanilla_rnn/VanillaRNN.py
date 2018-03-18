@@ -104,11 +104,11 @@ class VanillaRNN(nn.Module):
         self.initial_layer = nn.Sequential(initial_layers)
 
         # the recurrent layers
-        self.rnn_layer = nn.RNN(
+        self.rnn_layer = nn.LSTM(#nn.RNN(
                             input_size = prev_size, 
                             hidden_size = recurrent_hidden_size,
                             num_layers = recurrent_layer_num,
-                            nonlinearity = 'tanh',
+                            #nonlinearity = 'tanh',
                             bias = recurrent_use_bias,
                             batch_first = False,
                             dropout = recurrent_dropout)
@@ -204,6 +204,7 @@ class VanillaRNN(nn.Module):
             out, h = self.rnn_layer(out) # now has shape T, N, H_rnn
 
         if (self.recurrent_layer_num > 1):
+            h, c = h
             h = h.permute(1, 0, 2).contiguous()
             h = h.view(h.shape[0], -1)
         # H_rnn is the size of the hidden output
