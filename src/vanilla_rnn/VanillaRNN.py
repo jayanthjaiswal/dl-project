@@ -64,19 +64,20 @@ class VanillaRNN(nn.Module):
 
         # convolutional processing layers -- optional --
         
+        p = 10
         self.norm_layer = nn.BatchNorm1d(22)
         if (self.conv_layers):
             self.layer1 = nn.Sequential(
-                nn.Conv1d(22, 44,
+                nn.Conv1d(22, 22*p,
                             kernel_size=25,
                             groups = 22),
-                nn.ELU(),
-                nn.AvgPool1d(kernel_size=75,
-                             stride=15),
-                nn.Conv1d(44, 30, kernel_size=3),
-                nn.ELU())
-            prev_size = 30
-            self.T = 64
+                #nn.ELU(),
+                nn.AvgPool1d(kernel_size=25,
+                             stride=10),
+                nn.Conv1d(22*p, 50, kernel_size=3))
+                #nn.ELU())
+            prev_size = 50
+            self.T = 94
 
         # input processing layers -- optional --
 
@@ -103,7 +104,7 @@ class VanillaRNN(nn.Module):
                             batch_first = False,
                             dropout = recurrent_dropout)
 
-        prev_size = recurrent_hidden_size * recurrent_layer_num
+        prev_size = recurrent_hidden_size# * recurrent_layer_num
 
         # output processing layers -- optional --
         output_layers = OrderedDict() 
@@ -130,7 +131,7 @@ class VanillaRNN(nn.Module):
     def loss_regularizer(self):
         loss1 = 0
 
-        dLdh = self.rnn_out.grad.sum(dim=0).chunk(self.recurrent_layer_num)[-1]
+        dLdh = self.rnn_out.grad.sum(dim=0)#.chunk(self.recurrent_layer_num)[-1]
 
         l2norm = nn.MSELoss(size_average=False)
 
@@ -180,6 +181,7 @@ class VanillaRNN(nn.Module):
         if (not self.training):
             plt.plot(out.data[0, 0, :])
             plt.show()
+            print('plotshape: {}'.format(out.data.shape))
 
         # for rnn, we need to permute the input
         #   before it was N, E, T
@@ -204,8 +206,9 @@ class VanillaRNN(nn.Module):
             out, h = self.rnn_layer(out) # now has shape T, N, H_rnn
 
         if (self.recurrent_layer_num > 1):
-            h = h.permute(1, 0, 2).contiguous()
-            h = h.view(h.shape[0], -1)
+            #h = h.permute(1, 0, 2).contiguous()
+            #h = h.view(h.shape[0], -1)
+            h = h[-1]
         # H_rnn is the size of the hidden output
 
         if (self.verbose):
