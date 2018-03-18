@@ -4,6 +4,9 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.utils.data
 from collections import OrderedDict
+import resource
+import pickle
+import gc
 
 class CNN(nn.Module):
 
@@ -247,7 +250,7 @@ class Large_CNN(nn.Module):
                                 nn.Linear(conv5_out_channels, num_classes),
                                 nn.Softmax(dim=0))
         
-        if (use_drop):
+        if (use_dropout):
             self.dropouts = [nn.Dropout() for i in range(4)]
    
     def forward(self, x):
@@ -297,13 +300,29 @@ class Large_CNN(nn.Module):
 
         return out
 
-def Train(X_data, Y_data):
-    cnn = Large_CNN()
+def Train(
+    train_loader,
+    cnn_training_data_X,
+    cnn_training_data_Y,
+    cnn_validation_data_X,
+    cnn_validation_data_Y,
+    cnn_test_data_X,
+    cnn_test_data_Y,
+    num_epochs = 20,
+    batch_size = 10,
+    learning_rate = 3e-4,
+    weight_decay = 0.03,
+    dropout = True):
 
-    num_epochs = 20
-    batch_size = 10
-    learning_rate = 3e-4
-    weight_decay = 0.03
+    gc.collect()
+    test_name = 'test_{}_{}_{}_{}'.format(weight_decay,
+                                        dropout,
+                                        learning_rate,
+                                        batch_size)
+
+    f = open(test_name+'.txt', mode='w')
+
+    cnn = Large_CNN()
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(
@@ -319,8 +338,8 @@ def Train(X_data, Y_data):
     for epoch in range(num_epochs):
         for i, (images, labels) in enumerate(train_loader):
             gc.collect()
-            images = Variable(images, requires_grad=True) #unsqueeze used to make a 4d tensor because 
-            labels = Variable(labels, volatile=True)
+            images = Variable(images) #unsqueeze used to make a 4d tensor because 
+            labels = Variable(labels)
     
             # Forward + Backward + Optimize
             optimizer.zero_grad()
@@ -337,16 +356,22 @@ def Train(X_data, Y_data):
                 print ('Epoch [%d/%d], Iter [%d/%d] Loss: %.4f' 
                        %(epoch+1, num_epochs, i+1, len(cnn_training_data_X.shape)//batch_size, loss.data[0]))
                 gc.collect()
+                f.write ('Epoch [%d/%d], Iter [%d/%d] Loss: %.4f\n' 
+                       %(epoch+1, num_epochs, i+1, len(cnn_training_data_X.shape)//batch_size, loss.data[0]))
                 max_mem_used = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
                 print("{:.2f} MB".format(max_mem_used /(1024*1024)))
     
             del loss
+
         
         gc.collect()
         cnn.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
         
-        def test(X_data, Y_data, name='Train'):
-            test_images = Variable(torch.Tensor(X_data), volatile=True)
+        for (X_data, Y_data, name) in [
+                (cnn_training_data_X, cnn_training_data_Y, 'Train'),
+                (cnn_validation_data_X, cnn_validation_data_Y, 'Val')]:
+
+            test_images = Variable(torch.Tensor(X_data))
             test_labels = torch.LongTensor(Y_data)
             
             test_outputs = cnn(test_images)
@@ -356,14 +381,41 @@ def Train(X_data, Y_data):
             test_acc = 100.0 * float(test_correct) / float(test_total)
             print('label set: %s predicted set: %s ----- %s Accuracy: %s %%' % (
                    np.unique(test_labels.data), np.unique(test_predicted.data), name, test_acc))
+            f.write('label set: %s predicted set: %s ----- %s Accuracy: %s %%\n' % (
+                   np.unique(test_labels.data), np.unique(test_predicted.data), name, test_acc))
             
             val_acc.append(test_acc)
             del test_outputs
             del test_images, test_labels
             gc.collect()
         
-        test(cnn_training_data_X, cnn_training_data_Y, 'Train')
-        test(cnn_validation_data_X, cnn_validation_data_Y, 'Val')
+        #test(cnn_training_data_X, cnn_training_data_Y, 'Train')
+        #test(cnn_validation_data_X, cnn_validation_data_Y, 'Val')
+
+    cnn.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
+    correct = 0
+    total = 0
+    images = Variable(torch.Tensor(cnn_test_data_X))
+    labels = torch.LongTensor(cnn_test_data_Y)
+    outputs = cnn(images)
+    _, predicted = torch.max(outputs.data, 1)
+    total += labels.size(0)
+    correct += (predicted == labels).sum()
+
+    print('Test Accuracy of the model on the 10000 test images: %d %%' % (100.0 * int(correct) / float(total)))
+
+    f.write('Test Accuracy of the model on the 10000 test images: %d %%\n' % (100.0 * int(correct) / float(total)))
+
+    pickle.dump(loss_history, open(test_name+'_loss_hist.pkl', mode='wb'))
+    pickle.dump(val_acc, open(test_name+'_val_acc.pkl', mode='wb'))
+    pickle.dump(list(cnn.parameters()), open(test_name+'_params.pkl', mode='wb'))
+    f.close()
+
+    del outputs
+    del images, labels
+    del cnn
+    gc.collect()
+
 
 if __name__ == '__main__':
     print('testing cnn')
