@@ -1,4 +1,10 @@
 # dl-project
+We implemented the deep (Large_CNN) from the paper (reference [1] in our report)
+(There's also an implementation of one of our other shallow CNNs)
+with many parameters in the init function, and created a function for training,
+so that we could run a grid-search on different training parameters to probe around.
+
+the relevant code for this section is under the "cnn" folder.
 
 To include the dataset (which is private!!!) create a soft link
 in this repository called "project_datasets"
