@@ -1,4 +1,9 @@
 # dl-project
+This branch was made to test the LSTM atop our initial CNN.
+We ended up seeing that replacing the recurrent layers with
+fully connected ones acheived better accuracy across the board.
+Maybe we didn't use a large enough set of recurrent layers,
+but training was getting very slow
 
 To include the dataset (which is private!!!) create a soft link
 in this repository called "project_datasets"
