@@ -5,6 +5,8 @@ fully connected ones acheived better accuracy across the board.
 Maybe we didn't use a large enough set of recurrent layers,
 but training was getting very slow
 
+The relevant code for this section is under the "src" folder
+
 To include the dataset (which is private!!!) create a soft link
 in this repository called "project_datasets"
 (as in "ln -s <path to your project_datasets> project_datasets")
