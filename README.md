@@ -1,4 +1,10 @@
 # dl-project
+After seeing what was working well and what wasn't with CNNs and RNNs alone,
+this branch was revisited, to simplify the CNN, and play around with more
+training parameters. This still didn't achieve much accuracy, and prompted a
+sanity check where we removed the RNN layers
+
+The relevant code for these efforts and python notebook are under the src folder
 
 To include the dataset (which is private!!!) create a soft link
 in this repository called "project_datasets"
