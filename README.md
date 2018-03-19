@@ -1,4 +1,8 @@
 # dl-project
+The three of us each explored a different direction,
+this branch was the original exploration of the RNNs
+on top of CNN layers. The relevant code and python notebook
+for this section is under the folder called "src"
 
 To include the dataset (which is private!!!) create a soft link
 in this repository called "project_datasets"
