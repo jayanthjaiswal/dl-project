@@ -1,4 +1,11 @@
 # dl-project
+After testing a few RNN atop CNN models, and seeing how
+far we could get, we ran a few tests using the best CNN
+setup for these combined models but removing the RNN layers.
+It turned out, that the RNN layers were making our accuracy
+worse.
+
+the code and python notebook for this is under the "src" folder
 
 To include the dataset (which is private!!!) create a soft link
 in this repository called "project_datasets"
