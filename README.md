@@ -1,4 +1,10 @@
 # dl-project
+
+* Debleena Sengupta (004945991)
+* Fan Hung (804319873)
+* Jayanth (405026111)
+  
+
 We split our efforts into 3 tracks, one for primarily testing CNNs,
 one for primarily testing RNNs (alone), and one for primarily testing
 a combination of the two layer types. We created alternate branches for
@@ -21,7 +27,7 @@ fans_branch:
 	This branch contains the initial implementation of Vanilla RNN layers on top of CNN layers.
 
 jayanth_lstm:
-	This branch contains the initial implementation of lstm layers by themselves on the raw data.
+	This branch contains the initial implementation of 3 layered stacked lstm layers by themselves on the raw data.
 
 fans_branch_lstm:
 	This branch was made to test the LSTM atop an initial CNN.
